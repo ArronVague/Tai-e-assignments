@@ -95,6 +95,6 @@ public class LiveVariableAnalysis extends
         }
 
         in.set(out_B);
-        return false;
+        return true;
     }
 }
