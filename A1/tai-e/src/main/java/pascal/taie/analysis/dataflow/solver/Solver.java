@@ -82,11 +82,16 @@ public abstract class Solver<Node, Fact> {
 
     protected void initializeBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 实际上，这两句代码没有意义，CFG.getExit说明了cfg中已经存在exit节点，而analysis.newBoundaryFact和analysis
+        // .newInitialFact的功能是一样的，直接遍历cfg，为每一个节点初始化就行了。
         result.setInFact(cfg.getExit(), analysis.newBoundaryFact(cfg));
+        result.setOutFact(cfg.getExit(), analysis.newBoundaryFact(cfg));
 
         for (Node node : cfg) {
-            result.setInFact(node, analysis.newInitialFact());
-            result.setOutFact(node, analysis.newInitialFact());
+            if (!cfg.isExit(node)) {
+                result.setInFact(node, analysis.newInitialFact());
+                result.setOutFact(node, analysis.newInitialFact());
+            }
         }
     }
 
