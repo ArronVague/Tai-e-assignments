@@ -51,12 +51,14 @@ public interface Stmt extends Indexable {
     void setLineNumber(int lineNumber);
 
     /**
+     * 每条Stmt至多只可能定义一个变量
      * @return the (optional) left-value expression defined in this Stmt.
      * In Tai-e IR, each Stmt can define at most one expression.
      */
     Optional<LValue> getDef();
 
     /**
+     * 每条Stmt可能使用零或多个变量
      * @return a list of right-value expressions used in this Stmt.
      */
     List<RValue> getUses();

@@ -39,23 +39,27 @@ public interface DataflowAnalysis<Node, Fact> {
     boolean isForward();
 
     /**
+     * 边界条件
      * @return new fact in boundary conditions, i.e., the fact for
      * entry (exit) node in forward (backward) analysis.
      */
     Fact newBoundaryFact(CFG<Node> cfg);
 
     /**
+     * 初始条件
      * @return new initial fact for non-boundary nodes.
      */
     Fact newInitialFact();
 
     /**
+     * Meet操作
      * Meets a fact into another (target) fact.
      * This function will be used to handle control-flow confluences.
      */
     void meetInto(Fact fact, Fact target);
 
     /**
+     * Transfer函数
      * Node Transfer function for the analysis.
      * The function transfers data-flow from in (out) fact to out (in) fact
      * for forward (backward) analysis.
