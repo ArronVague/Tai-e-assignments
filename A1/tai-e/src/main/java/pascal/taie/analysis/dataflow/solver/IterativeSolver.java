@@ -43,19 +43,25 @@ class IterativeSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 记录IN是否发生变化。
         boolean changed = true;
         while (changed) {
+            // 每次循环开始，初始化changed为false。
             changed = false;
             for (Node node : cfg) {
                 // OUT[B] = union IN[B]
+                // 获取节点B的IN和OUT集合。
                 Fact out_B = result.getOutFact(node);
                 Fact in_B = result.getInFact(node);
+                // 对B的每一个后继节点，将其IN集合合并到OUT[B]中。
                 for (Node succ : cfg.getSuccsOf(node)) {
                     analysis.meetInto(result.getInFact(succ), out_B);
                 }
+                // 如果转换函数的返回值为true，说明IN[B]发生了变化，将changed置为true。
                 if (analysis.transferNode(node, in_B, out_B)) {
                     changed = true;
                 }
+                // 更新节点B的OUT和IN集合。
                 result.setOutFact(node, out_B);
                 result.setInFact(node, in_B);
             }

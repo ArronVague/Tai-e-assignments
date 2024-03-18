@@ -87,9 +87,11 @@ public abstract class Solver<Node, Fact> {
         result.setInFact(cfg.getExit(), analysis.newBoundaryFact(cfg));
         result.setOutFact(cfg.getExit(), analysis.newBoundaryFact(cfg));
 
+        // 遍历cfg，为每一个节点初始化。
         for (Node node : cfg) {
             if (!cfg.isExit(node)) {
                 result.setInFact(node, analysis.newInitialFact());
+                // 由于analysis.meetInto是在函数内修改out，因此也要为每一个节点初始化out。
                 result.setOutFact(node, analysis.newInitialFact());
             }
         }
