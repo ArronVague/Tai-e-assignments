@@ -78,7 +78,13 @@ public abstract class Solver<Node, Fact> {
 
     protected void initializeForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        // 将控制流图（CFG）的入口节点的出口fact设置为边界fact。
+        // 在数据流分析中，边界fact通常代表在CFG边界处的数据流信息。
+        // 这里使用了分析对象的newBoundaryFact方法来创建一个新的边界fact。
         result.setOutFact(cfg.getEntry(), this.analysis.newBoundaryFact(cfg));
+        // 对于CFG中的其他节点（非入口节点），将它们的出口fact设置为初始fact。
+        // 在数据流分析中，初始fact通常代表了在分析开始时的数据流信息。
+        // 这里使用了分析对象的newInitialFact方法来创建一个新的初始fact。
         cfg.getNodes().stream()
                 .filter(node -> node != cfg.getEntry())
                 .forEach(node -> result.setOutFact(node, this.analysis.newInitialFact()));
