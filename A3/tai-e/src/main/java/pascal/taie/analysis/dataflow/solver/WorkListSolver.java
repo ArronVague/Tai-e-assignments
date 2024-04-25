@@ -23,8 +23,16 @@
 package pascal.taie.analysis.dataflow.solver;
 
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
+import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
+import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
+import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
+
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
 
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
@@ -35,10 +43,43 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        Set<Node> worklist = new HashSet<>() {{ addAll(cfg.getNodes()); }};
+        while (!worklist.isEmpty()) {
+            (new HashSet<Node>(worklist)).forEach(node -> {
+                worklist.remove(node);
+                Fact in = this.analysis.newInitialFact();
+                if (node == cfg.getEntry()) {
+                    cfg.getIR().getParams().stream()
+                            .filter(ConstantPropagation::canHoldInt)
+                            .forEach(param -> ((CPFact) in).update(param, Value.getNAC()));
+                }
+                cfg.getPredsOf(node).forEach(pred -> this.analysis.meetInto(result.getOutFact(pred), in));
+                result.setInFact(node, in);
+                if (this.analysis.transferNode(node, in, result.getOutFact(node))) {
+                    worklist.addAll(cfg.getSuccsOf(node));
+                }
+            });
+        }
     }
 
     @Override
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        var workList = new LinkedList<>(cfg.getNodes());
+        while (!workList.isEmpty()){
+            var node = workList.pop();
+            var outFact = analysis.newInitialFact();
+            var inFact = result.getInFact(node);
+
+            for (Node succNode : cfg.getSuccsOf(node)) {
+                analysis.meetInto(result.getInFact(succNode),outFact);
+            }
+
+            result.setOutFact(node,outFact);
+
+            if (analysis.transferNode(node,inFact,outFact)){
+                workList.addAll(cfg.getPredsOf(node));
+            }
+        }
     }
 }
