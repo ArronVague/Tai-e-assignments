@@ -25,7 +25,6 @@ package pascal.taie.analysis.dataflow.analysis;
 import pascal.taie.analysis.MethodAnalysis;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
-import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.dataflow.fact.SetFact;
 import pascal.taie.analysis.graph.cfg.CFG;
@@ -40,7 +39,6 @@ import pascal.taie.ir.exp.FieldAccess;
 import pascal.taie.ir.exp.NewExp;
 import pascal.taie.ir.exp.RValue;
 import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.AssignStmt;
 import pascal.taie.ir.stmt.If;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.SwitchStmt;
@@ -71,50 +69,66 @@ public class DeadCodeDetection extends MethodAnalysis {
         // Your task is to recognize dead code in ir and add it to deadCode
         var unreachedStmt = new HashSet<Stmt>(cfg.getNodes());
         var workList = new LinkedList<Stmt>();
+        // 将CFG的入口节点加入工作列表
         workList.add(cfg.getEntry());
-        // cfg相对ir的stmts会添加entry和exit两个节点
-        // exit节点不应该出现在结果中
+        // 从未访问到的语句集合中移除CFG的出口节点
         unreachedStmt.remove(cfg.getExit());
-        // iterate cfg
+        // 遍历CFG
         while (!workList.isEmpty()){
+            // 从工作列表中取出一个语句
             var stmt = workList.pop();
+            // 从未访问到的语句集合中移除这个语句
             unreachedStmt.remove(stmt);
-            // unused variable
+            // 如果这个语句定义的变量是不活跃的，那么这个语句就是死代码
             if (isUnusedVar(stmt,liveVars)){
                 deadCode.add(stmt);
             }
 
-            // if and switch
+            // 如果这个语句是if语句
             if (stmt instanceof If ifStmt){
+                // 获取if语句的条件
                 var condition = ifStmt.getCondition();
+                // 获取这个语句的常量传播结果
                 var cpFact = constants.getResult(stmt);
+                // 计算条件的值
                 var value = ConstantPropagation.evaluate(condition,cpFact);
 
                 for (Edge<Stmt> stmtEdge : cfg.getOutEdgesOf(stmt)) {
+                    // 如果条件的值是不确定的，或者条件的值是真并且边的类型是IF_TRUE
                     if (value.isNAC() || (stmtEdge.getKind() == Edge.Kind.IF_TRUE && value.getConstant() == 1)){
+                        // 获取边的目标节点
                         var target = stmtEdge.getTarget();
+                        // 如果目标节点还未访问，那么将目标节点加入工作列表
                         if (unreachedStmt.contains(target)){
                             workList.add(target);
                         }
                     }
 
+                    // 如果条件的值是不确定的，或者条件的值是假并且边的类型是IF_FALSE
                     if (value.isNAC() || (stmtEdge.getKind() == Edge.Kind.IF_FALSE && value.getConstant() == 0)){
+                        // 获取边的目标节点
                         var target = stmtEdge.getTarget();
+                        // 如果目标节点还未访问，那么将目标节点加入工作列表
                         if (unreachedStmt.contains(target)){
                             workList.add(target);
                         }
                     }
                 }
             } else if (stmt instanceof SwitchStmt switchStmt){
+                // 如果这个语句是switch语句
+                // 获取switch语句的变量
                 var switchVar = switchStmt.getVar();
+                // 获取这个变量的值
                 var value = constants.getResult(stmt).get(switchVar);
                 if (value.isNAC()){
+                    // 如果这个变量的值是不确定的，那么将所有后继节点加入工作列表
                     for (Stmt succStmt : cfg.getSuccsOf(stmt)) {
                         if (unreachedStmt.contains(succStmt)){
                             workList.add(succStmt);
                         }
                     }
                 } else {
+                    // 如果这个变量的值是确定的，那么只将匹配的case或default加入工作列表
                     var consValue = value.getConstant();
                     Edge<Stmt> defaultEdge = null;
                     var isMatch = false;
@@ -143,6 +157,7 @@ public class DeadCodeDetection extends MethodAnalysis {
                     }
                 }
             } else {
+                // 如果这个语句是其他类型的语句，那么将所有后继节点加入工作列表
                 for (Stmt succStmt : cfg.getSuccsOf(stmt)) {
                     if (unreachedStmt.contains(succStmt)){
                         workList.add(succStmt);
@@ -151,28 +166,38 @@ public class DeadCodeDetection extends MethodAnalysis {
             }
         }
 
+        // 将所有未访问到的语句加入死代码集合
         deadCode.addAll(unreachedStmt);
 
+        // 返回死代码集合
         return deadCode;
     }
 
     private boolean isUnusedVar(Stmt node,DataflowResult<Stmt,SetFact<Var>> liveVars){
+        // 获取这个语句定义的变量
         var defVar = node.getDef();
+        // 如果这个语句没有定义变量，那么它不是死代码
         if (defVar.isEmpty()){
             return false;
         }
 
+        // 遍历这个语句使用的所有值
         for (RValue use : node.getUses()) {
+            // 如果这个值有副作用，那么这个语句不是死代码
             if (!hasNoSideEffect(use)){
                 return false;
             }
         }
 
+        // 如果这个语句定义的是一个变量
         if (defVar.get() instanceof Var v){
+            // 如果这个变量在这个语句之后是活跃的，那么这个语句不是死代码
             return !liveVars.getResult(node).contains(v);
         }
+        // 如果这个语句定义的不是一个变量，那么它不是死代码
         return false;
     }
+
 
     /**
      * @return true if given RValue has no side effect, otherwise false.
