@@ -83,7 +83,6 @@ public class DeadCodeDetection extends MethodAnalysis {
             if (isUnusedVar(stmt,liveVars)){
                 deadCode.add(stmt);
             }
-
             // 如果这个语句是if语句
             if (stmt instanceof If ifStmt){
                 // 获取if语句的条件
@@ -165,10 +164,8 @@ public class DeadCodeDetection extends MethodAnalysis {
                 }
             }
         }
-
         // 将所有未访问到的语句加入死代码集合
         deadCode.addAll(unreachedStmt);
-
         // 返回死代码集合
         return deadCode;
     }
