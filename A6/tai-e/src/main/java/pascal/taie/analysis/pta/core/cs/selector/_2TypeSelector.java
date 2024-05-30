@@ -44,14 +44,18 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
         // TODO - finish me
+        // 直接返回调用站点的上下文
         return callSite.getContext();
     }
 
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
+        // 获取接收对象的上下文并获取其长度
         Context context = recv.getContext();
         int length = context.getLength();
+        // 如果长度为0，则返回一个新的上下文，该上下文由接收对象的容器类型创建
+        // 否则，返回一个新的上下文，该上下文由上一个类型和接收对象的容器类型创建
         if (length == 0) {
             return ListContext.make(recv.getObject().getContainerType());
         }
@@ -61,8 +65,11 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
+        // 获取方法的上下文并获取其长度
         Context context = method.getContext();
         int length = context.getLength();
+        // 如果长度为0，则返回一个空的上下文
+        // 否则，返回一个新的上下文，该上下文由上一个类型创建
         if (length == 0) {
             return getEmptyContext();
         }

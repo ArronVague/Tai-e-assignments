@@ -105,9 +105,13 @@ class Solver {
      */
     private void addReachable(CSMethod csMethod) {
         // TODO - finish me
-        if (!callGraph.contains(csMethod)) {//if c:m ∉ RM then
-            callGraph.addReachableMethod(csMethod);//add c:m to RM
+        // 判断 callGraph（调用图）是否包含 csMethod（当前方法）
+        if (!callGraph.contains(csMethod)) {
+            // 如果 callGraph 不包含 csMethod，那么将 csMethod 添加到 callGraph
+            callGraph.addReachableMethod(csMethod);
+            // 遍历 csMethod 方法中的每一个语句
             for (Stmt stmt : csMethod.getMethod().getIR().getStmts()) {
+                // 对每个语句执行 StmtProcessor（语句处理器），这可能会进行一些额外的处理或分析
                 stmt.accept(new StmtProcessor(csMethod));
             }
         }
@@ -129,22 +133,31 @@ class Solver {
 
         // TODO - if you choose to implement addReachable()
         //  via visitor pattern, then finish me
+        // 处理 Invoke 类型的语句
         @Override
-        public Void visit(Invoke invokeStmt) {// x = T.m();
+        public Void visit(Invoke invokeStmt) {
+            // 如果调用的方法不是静态的，直接返回 null
             if (!invokeStmt.isStatic()) {
                 return null;
             }
+            // 解析被调用的方法
             JMethod callee = resolveCallee(null, invokeStmt);
+            // 获取当前调用站点的上下文敏感表示
             CSCallSite csCallSite = csManager.getCSCallSite(context, invokeStmt);
+            // 选择被调用方法的上下文
             Context calleeContext = contextSelector.selectContext(csCallSite, callee);
+            // 在调用图中添加边，并判断是否添加成功
             if (callGraph.addEdge(new Edge<>(CallKind.STATIC, csCallSite, csManager.getCSMethod(calleeContext, callee)))) {
+                // 如果添加成功，将被调用方法添加到可达方法集合中
                 addReachable(csManager.getCSMethod(calleeContext, callee));
+                // 遍历调用语句的所有参数，并在指针流图中添加边
                 for (int i = 0; i < invokeStmt.getInvokeExp().getArgCount(); i++) {
                     addPFGEdge(
                             csManager.getCSVar(context, invokeStmt.getInvokeExp().getArg(i)),
                             csManager.getCSVar(calleeContext, callee.getIR().getParam(i))
                     );
                 }
+                // 如果调用语句有左值，处理返回值在指针流图中的边
                 if (invokeStmt.getLValue() != null) {
                     for (Var returnVar : callee.getIR().getReturnVars()) {
                         addPFGEdge(
@@ -157,8 +170,10 @@ class Solver {
             return null;
         }
 
+        // 处理 New 类型的语句
         @Override
-        public Void visit(New newStmt) {// x = new T();
+        public Void visit(New newStmt) {
+            // 在工作列表中添加条目，表示创建了一个新的对象
             workList.addEntry(
                     csManager.getCSVar(context, newStmt.getLValue()),
                     PointsToSetFactory.make(csManager.getCSObj(
@@ -169,8 +184,10 @@ class Solver {
             return null;
         }
 
+        // 处理 Copy 类型的语句
         @Override
-        public Void visit(Copy copyStmt) {// x = y;
+        public Void visit(Copy copyStmt) {
+            // 在指针流图中添加边，表示变量的赋值操作
             addPFGEdge(
                     csManager.getCSVar(context, copyStmt.getRValue()),
                     csManager.getCSVar(context, copyStmt.getLValue())
@@ -178,8 +195,10 @@ class Solver {
             return null;
         }
 
+        // 处理 StoreField 类型的语句
         @Override
-        public Void visit(StoreField storeFieldStmt) {// T.f = y;
+        public Void visit(StoreField storeFieldStmt) {
+            // 如果字段是静态的，那么在指针流图中添加边，表示字段的赋值操作
             if (storeFieldStmt.isStatic()) {
                 addPFGEdge(
                         csManager.getCSVar(context, storeFieldStmt.getRValue()),
@@ -189,8 +208,10 @@ class Solver {
             return null;
         }
 
+        // 处理 LoadField 类型的语句
         @Override
-        public Void visit(LoadField loadFieldStmt) {// y = T.f;
+        public Void visit(LoadField loadFieldStmt) {
+            // 如果字段是静态的，那么在指针流图中添加边，表示从字段读取值的操作
             if (loadFieldStmt.isStatic()) {
                 addPFGEdge(
                         csManager.getStaticField(loadFieldStmt.getFieldRef().resolve()),
@@ -206,9 +227,12 @@ class Solver {
      */
     private void addPFGEdge(Pointer source, Pointer target) {
         // TODO - finish me
-        if (pointerFlowGraph.addEdge(source, target)) {// if s → t ∉ PFG then add s → t to PFG
-            if (!source.getPointsToSet().isEmpty()) {// if pt(s) is not empty then
-                workList.addEntry(target, source.getPointsToSet());// add <t, pt(s)> to WL
+        // 如果指针流图中不存在从 source 指向 target 的边，那么在图中添加这条边
+        if (pointerFlowGraph.addEdge(source, target)) {
+            // 如果 source 的指向集合（PointsToSet）不为空
+            if (!source.getPointsToSet().isEmpty()) {
+                // 将 target 和 source 的指向集合添加到工作列表（WorkList）中
+                workList.addEntry(target, source.getPointsToSet());
             }
         }
     }
@@ -218,38 +242,52 @@ class Solver {
      */
     private void analyze() {
         // TODO - finish me
-        while (!workList.isEmpty()) {// while WL is not empty do
-            WorkList.Entry entry = workList.pollEntry();// remove from WL
-            PointsToSet delta = propagate(entry.pointer(), entry.pointsToSet());// Propagate(n, Δ)
-            if (entry.pointer() instanceof CSVar csVar) {// if n represents a variable c:x then
+        // 当工作列表不为空时，持续执行分析
+        while (!workList.isEmpty()) {
+            // 从工作列表中取出一个条目
+            WorkList.Entry entry = workList.pollEntry();
+            // 对取出的条目进行传播操作，并获取结果
+            PointsToSet delta = propagate(entry.pointer(), entry.pointsToSet());
+            // 如果条目的指针是一个上下文敏感变量
+            if (entry.pointer() instanceof CSVar csVar) {
+                // 获取变量的原始表示
                 Var var = csVar.getVar();
-                for (CSObj obj : delta) {// foreach  c′:𝑜𝑖 ∈ Δ do
-                    for (StoreField storeField : var.getStoreFields()) {// x.f = y;
+                // 遍历 delta 中的每一个对象
+                for (CSObj obj : delta) {
+                    // 遍历变量的所有存储字段语句
+                    for (StoreField storeField : var.getStoreFields()) {
+                        // 在指针流图中添加边，表示字段的赋值操作
                         addPFGEdge(
                                 csManager.getCSVar(csVar.getContext(), storeField.getRValue()),
                                 csManager.getInstanceField(obj, storeField.getFieldRef().resolve())
-                        );// AddEdge(c:y, c′:𝑜𝑖.f)
-
+                        );
                     }
-                    for (LoadField loadField : var.getLoadFields()) {// y = x.f;
+                    // 遍历变量的所有加载字段语句
+                    for (LoadField loadField : var.getLoadFields()) {
+                        // 在指针流图中添加边，表示从字段读取值的操作
                         addPFGEdge(
                                 csManager.getInstanceField(obj, loadField.getFieldRef().resolve()),
                                 csManager.getCSVar(csVar.getContext(), loadField.getLValue())
-                        );// AddEdge(c′:𝑜𝑖.f, c:y)
+                        );
                     }
-                    for (StoreArray storeArray : var.getStoreArrays()) {// x[i] = y;
+                    // 遍历变量的所有存储数组语句
+                    for (StoreArray storeArray : var.getStoreArrays()) {
+                        // 在指针流图中添加边，表示数组元素的赋值操作
                         addPFGEdge(
                                 csManager.getCSVar(csVar.getContext(), storeArray.getRValue()),
                                 csManager.getArrayIndex(obj)
                         );
                     }
-                    for (LoadArray loadArray : var.getLoadArrays()) {// y = x[i];
+                    // 遍历变量的所有加载数组语句
+                    for (LoadArray loadArray : var.getLoadArrays()) {
+                        // 在指针流图中添加边，表示从数组元素读取值的操作
                         addPFGEdge(
                                 csManager.getArrayIndex(obj),
                                 csManager.getCSVar(csVar.getContext(), loadArray.getLValue())
                         );
                     }
-                    processCall(csVar, obj);// ProcessCall(c:x, c′:𝑜𝑖)
+                    // 处理变量的调用
+                    processCall(csVar, obj);
                 }
             }
         }
@@ -261,20 +299,28 @@ class Solver {
      */
     private PointsToSet propagate(Pointer pointer, PointsToSet pointsToSet) {
         // TODO - finish me
+        // 创建一个新的 PointsToSet 对象 delta
         PointsToSet delta = PointsToSetFactory.make();
-        for (CSObj csObj : pointsToSet.getObjects()) {// Δ = pts – pt(n)
+        // 遍历 pointsToSet 中的每一个对象
+        for (CSObj csObj : pointsToSet.getObjects()) {
+            // 如果 pointer 的 PointsToSet 不包含这个对象，那么将这个对象添加到 delta 中
             if (!pointer.getPointsToSet().contains(csObj)) {
                 delta.addObject(csObj);
             }
         }
-        if (!delta.isEmpty()) {// if pts is not empty then
-            for (CSObj csObj : delta) {// pt(n) ⋃= pts
+        // 如果 delta 不为空
+        if (!delta.isEmpty()) {
+            // 将 delta 中的每一个对象添加到 pointer 的 PointsToSet 中
+            for (CSObj csObj : delta) {
                 pointer.getPointsToSet().addObject(csObj);
             }
-            for (Pointer succ : pointerFlowGraph.getSuccsOf(pointer)) {// foreach n → s ∈ PFG do
-                workList.addEntry(succ, delta);// add s, pts to WL
+            // 遍历 pointer 在指针流图中的每一个后继
+            for (Pointer succ : pointerFlowGraph.getSuccsOf(pointer)) {
+                // 将后继和 delta 添加到工作列表中
+                workList.addEntry(succ, delta);
             }
         }
+        // 返回 delta
         return delta;
     }
 
@@ -286,32 +332,44 @@ class Solver {
      */
     private void processCall(CSVar recv, CSObj recvObj) {
         // TODO - finish me
-        for (Invoke invoke : recv.getVar().getInvokes()) {// foreach l: r = x.k(a1,…,an) ∈ S do
+        // 遍历接收者变量的所有调用
+        for (Invoke invoke : recv.getVar().getInvokes()) {
+            // 如果是静态调用，跳过
             if (invoke.isStatic()) continue;
-            JMethod callee = resolveCallee(recvObj, invoke);// m = Dispatch(𝑜𝑖, k)
+            // 解析调用的目标方法
+            JMethod callee = resolveCallee(recvObj, invoke);
+            // 获取上下文敏感的调用站点
             CSCallSite csCallSite = csManager.getCSCallSite(recv.getContext(), invoke);
-            Context calleeContext = contextSelector.selectContext(csCallSite, recvObj, callee);// 𝑐𝑡 = Select(c, l, 𝑐′:𝑜𝑖)
-            workList.addEntry(csManager.getCSVar(calleeContext, callee.getIR().getThis()), PointsToSetFactory.make(recvObj));// add to WL
-            if (callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(invoke), csCallSite, csManager.getCSMethod(calleeContext, callee)))) {// if c:l → 𝑐𝑡:m ∉ CG then
-                addReachable(csManager.getCSMethod(calleeContext, callee));// AddReachable(𝑐𝑡:𝑚)
+            // 选择调用的上下文
+            Context calleeContext = contextSelector.selectContext(csCallSite, recvObj, callee);
+            // 将调用方法的 "this" 变量和接收者对象添加到工作列表中
+            workList.addEntry(csManager.getCSVar(calleeContext, callee.getIR().getThis()), PointsToSetFactory.make(recvObj));
+            // 如果在调用图中添加了新的边
+            if (callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(invoke), csCallSite, csManager.getCSMethod(calleeContext, callee)))) {
+                // 将调用方法添加到可达方法集合中
+                addReachable(csManager.getCSMethod(calleeContext, callee));
+                // 遍历调用的所有参数
                 for (int i = 0; i < invoke.getInvokeExp().getArgCount(); i++) {
+                    // 在指针流图中添加边，表示参数的传递
                     addPFGEdge(
                             csManager.getCSVar(recv.getContext(), invoke.getInvokeExp().getArg(i)),
                             csManager.getCSVar(calleeContext, callee.getIR().getParam(i))
                     );
-                }// AddEdge(c:𝑎𝑖, 𝑐𝑡:𝑝𝑖)
+                }
+                // 如果调用有返回值
                 if (invoke.getLValue() != null) {
+                    // 遍历方法的所有返回变量
                     for (Var returnVar : callee.getIR().getReturnVars()) {
+                        // 在指针流图中添加边，表示返回值的传递
                         addPFGEdge(
                                 csManager.getCSVar(calleeContext, returnVar),
                                 csManager.getCSVar(recv.getContext(), invoke.getLValue())
                         );
-                    }// AddEdge(𝑐𝑡: 𝑚𝑟, c:r)
+                    }
                 }
             }
         }
     }
-
     /**
      * Resolves the callee of a call site with the receiver object.
      *

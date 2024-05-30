@@ -44,8 +44,11 @@ public class _2CallSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
         // TODO - finish me
+        // 获取调用站点的上下文并获取其长度
         Context context = callSite.getContext();
         int length = context.getLength();
+        // 如果长度为0，则返回一个新的上下文，该上下文由当前调用站点创建
+        // 否则，返回一个新的上下文，该上下文由上一个调用站点和当前调用站点创建
         if (length == 0) {
             return ListContext.make(callSite.getCallSite());
         }
@@ -55,14 +58,18 @@ public class _2CallSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
+        // 返回调用站点和被调用方法的上下文
         return selectContext(callSite, callee);
     }
 
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
+        // 获取方法的上下文并获取其长度
         Context context = method.getContext();
         int length = context.getLength();
+        // 如果长度为0，则返回一个空的上下文
+        // 否则，返回一个新的上下文，该上下文由上一个调用站点创建
         if (length == 0) {
             return getEmptyContext();
         }

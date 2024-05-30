@@ -43,18 +43,21 @@ public class _1CallSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
         // TODO - finish me
+        // 返回一个新的上下文，该上下文由调用站点创建
         return ListContext.make(callSite.getCallSite());
     }
 
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
+        // 重载的 selectContext 方法，忽略接收者对象，只使用调用站点和被调用方法来选择上下文
         return selectContext(callSite, callee);
     }
 
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
+        // 选择堆上下文，这里返回的是一个空上下文
         return getEmptyContext();
     }
 }
